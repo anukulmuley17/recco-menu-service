@@ -16,3 +16,8 @@ spring:
       idle-timeout: 30000      # Maximum time (in milliseconds) that a connection can sit idle in the pool
       max-lifetime: 1800000    # Maximum lifetime (in milliseconds) of a connection in the pool
       connection-timeout: 30000 # Maximum time (in milliseconds) to wait for a connection from the pool
+
+# jwt:
+#   secret: 2cabc0dbceff31cdbb9c0c2a0ea5ef5004ee355228a6820ac25e22d16467a0315dc5ac21046f3b63fd8998b7c8c94fa77645cd694dff36a6dbe02bbafd1c0dfe63a7d942b12f38ea85b74831f1568431da0b53294e3c8e37a394cf975d6e8af0bbd49179b4be254d9a76aa334cd42309d03ed2111815cc367ea99670b5467ca786f6b6de5e0ed844a1aa1edff2ec2f77e5fce6100d1d79a2823775932103fe084f29081f669392ef50c2200a1dfaaefb7780c656a36ca0dbbc15e3bbcbf420384ebd4608bbaf26f7322ad8ecd239c71add542e41e45acc848358e9fb07a1d691abfe5c7a2291f511283759fe2e1860c60c32f88009ec9d3e2fda946800c47fac
+#   expiration: 86400000 
+  

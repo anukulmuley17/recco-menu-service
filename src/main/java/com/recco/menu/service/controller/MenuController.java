@@ -1,93 +1,228 @@
 package com.recco.menu.service.controller;
 
-import java.math.BigDecimal;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.recco.menu.service.model.Category;
 import com.recco.menu.service.model.MenuItem;
 import com.recco.menu.service.model.Preference;
-import com.recco.menu.service.model.Category;
 import com.recco.menu.service.services.MenuService;
+import com.recco.menu.service.util.TableIdDecoder;
 
-import lombok.RequiredArgsConstructor;
-
+@CrossOrigin("http://localhost:4200")
 @RestController
 @RequestMapping("/api/menu")
-@RequiredArgsConstructor
 public class MenuController {
 
-    private final MenuService menuService;
-   
-    public MenuController(MenuService menuService) {
+	private final MenuService menuService;
+
+	@Autowired
+	TableIdDecoder tableIdDecoder;
+	
+	private final Path imageStoragePath = Paths.get("images");
+
+	public MenuController(MenuService menuService) {
 		this.menuService = menuService;
 	}
-    
-    @GetMapping("/all")
-    public ResponseEntity<List<MenuItem>> getAllMenuItems(@RequestParam(name = "tableId", required = false) String tableId) {
-        if (tableId != null) {
-            System.out.println("Menu accessed from table: " + tableId);
+
+	// ✅ Extract tableId from qrToken
+	private String extractTableId(String qrToken) {
+	    try {
+	        return tableIdDecoder.decodeTableId(qrToken);
+	    } catch (Exception e) {
+	        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid QR Token");
+	    }
+	}
+	
+    /** ✅ SAVE IMAGE TO FILESYSTEM */
+    private String saveImage(MultipartFile image) throws IOException {
+        if (!Files.exists(imageStoragePath)) {
+            Files.createDirectories(imageStoragePath);  // Ensure directory exists
         }
-        List<MenuItem> menuItems = menuService.getAllMenuItems();
-        return ResponseEntity.ok(menuItems);
+        String fileName = System.currentTimeMillis() + "_" + image.getOriginalFilename();
+        Path filePath = imageStoragePath.resolve(fileName);
+        Files.copy(image.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+        return fileName;
     }
-    
-	// ✅ Get All Items or Filter by Category & Preference
-    @GetMapping
-    public List<MenuItem> getFilteredMenu(
-            @RequestParam(value = "category", required = false) String category,
-            @RequestParam(value = "preference", required = false) String preference) {
 
-        if (category != null && preference != null) {
-            return menuService.getItemsByCategoryAndPreference(
-                    Category.valueOf(category.toUpperCase()), 
-                    Preference.valueOf(preference.toUpperCase()));
+	/** ✅ GET ALL MENU ITEMS */
+	@GetMapping("/all")
+	public ResponseEntity<List<MenuItem>> getAllMenuItems(
+			@RequestParam(value = "qrToken", required = true) String qrToken) {
+
+		String tableId = extractTableId(qrToken);
+		System.out.println("Serving menu to table: " + tableId);
+		return ResponseEntity.ok(menuService.getAllMenuItems(tableId));
+	}
+
+	/** ✅ GET ITEM BY NAME */
+	@GetMapping("/item")
+	public ResponseEntity<MenuItem> getItemByName(@RequestParam(value = "qrToken", required = true) String qrToken,
+			@RequestParam("name") String name) {
+		String tableId = extractTableId(qrToken);
+		System.out.println("Item request from table: " + tableId);
+		return ResponseEntity.ok(menuService.getMenuItemByName(name));
+	}
+
+	/** ✅ ADD NEW MENU ITEM */
+//	@PostMapping("/add")
+//	public ResponseEntity<MenuItem> addMenuItem(@RequestParam(value = "qrToken", required = true) String qrToken,
+//			@RequestBody MenuItem menuItem) {
+//
+//		String tableId = extractTableId(qrToken);
+//		System.out.println("Adding item from table: " + tableId);
+//		return ResponseEntity.ok(menuService.addMenuItem(menuItem));
+//	}
+	
+	 /** ✅ ADD MENU ITEM WITH IMAGE */
+//    @PostMapping(value = "/add", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+//    public ResponseEntity<MenuItem> addMenuItem(
+//            @RequestParam("qrToken") String qrToken,
+//            @RequestParam("name") String name,
+//            @RequestParam("description") String description,
+//            @RequestParam("preference") String preference,
+//            @RequestParam("category") String category,
+//            @RequestParam("price") Double price,
+//            @RequestParam("image") MultipartFile image) throws IOException {
+//
+//        String tableId = extractTableId(qrToken);
+//        System.out.println("Adding item from table: " + tableId);
+//
+//        // ✅ Save image file
+//        String fileName = saveImage(image);
+//
+//        MenuItem menuItem = new MenuItem();
+//        menuItem.setName(name);
+//        menuItem.setDescription(description);
+//        menuItem.setPreference(Preference.valueOf(preference.toUpperCase()));
+//        menuItem.setCategory(Category.valueOf(category.toUpperCase()));
+//        menuItem.setPrice(price);
+//        menuItem.setImagePath(fileName); 
+//
+//        return ResponseEntity.ok(menuService.addMenuItem(menuItem));
+//    }
+	
+	/** ✅ ADD MENU ITEM WITH IMAGE */
+	@PostMapping(value = "/add", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	public ResponseEntity<MenuItem> addMenuItem(
+	        @RequestParam("menuItem") String menuItemJson,  // JSON as a String
+	        @RequestParam("image") MultipartFile image) throws IOException {
+
+	    ObjectMapper objectMapper = new ObjectMapper();
+	    MenuItem menuItem = objectMapper.readValue(menuItemJson, MenuItem.class);  // Convert JSON String to Object
+
+	    String fileName = saveImage(image);  // Save the image file
+	    menuItem.setImagePath(fileName);  // Set the image path in the menu item
+
+	    return ResponseEntity.ok(menuService.addMenuItem(menuItem));
+	}
+
+    /** ✅ SERVE IMAGES */
+    @GetMapping("/image")
+    public ResponseEntity<UrlResource> getImage(@RequestParam(value = "imageName", required = true) String imageName) {
+        try {
+            Path filePath = imageStoragePath.resolve(imageName).normalize();
+            UrlResource resource = new UrlResource(filePath.toUri()); // ✅ No mismatch now
+
+            if (resource.exists() && resource.isReadable()) {
+                return ResponseEntity.ok()
+                        .contentType(MediaType.IMAGE_JPEG) // ✅ Change type if needed (PNG, etc.)
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+                        .body(resource);
+            }
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
         }
-        if (category != null) {
-            return menuService.getItemsByCategory(Category.valueOf(category.toUpperCase()));
-        }
-        if (preference != null) {
-            return menuService.getItemsByPreference(Preference.valueOf(preference.toUpperCase()));
-        }
-        return menuService.getAllMenuItems();
+        return ResponseEntity.notFound().build();
     }
 
-    // ✅ Get a Menu Item by Name
-    @GetMapping("/item")
-    public ResponseEntity<MenuItem> getItem(@RequestParam("name") String name) {
-        return ResponseEntity.ok(menuService.getMenuItemByName(name));
-    }
+	/** ✅ DELETE ITEM BY NAME */
+	@DeleteMapping("/delete")
+	public ResponseEntity<String> deleteMenuItem(
+//			@RequestParam(value = "qrToken", required = true) String qrToken,
+			@RequestParam("name") String name) {
 
-    // ✅ Add a New Menu Item
-    @PostMapping("/add")
-    public ResponseEntity<MenuItem> addMenuItem(@RequestBody MenuItem menuItem) {
-        MenuItem savedItem = menuService.addMenuItem(menuItem);
-        return ResponseEntity.status(HttpStatus.CREATED).body(savedItem);
-    }
+//		String tableId = extractTableId(qrToken);
+//		System.out.println("Deleting item from table: " + tableId);
+		menuService.deleteMenuItemByName(name);
+		return ResponseEntity.ok("Item deleted successfully");
+	}
 
-    // ✅ Update a Menu Item by Name
-    @PutMapping("/edit")
-    public MenuItem updateItem(@RequestParam("name") String name, @RequestBody MenuItem menuItem) {
-        return menuService.updateMenuItem(name, menuItem);
-    }
+	/** ✅ EDIT MENU ITEM */
+	@PutMapping("/edit")
+	public ResponseEntity<MenuItem> editMenuItem(
+//			@RequestParam(value = "qrToken", required = true) String qrToken,
+			@RequestParam("name") String name, @RequestBody MenuItem menuItem) {
 
+//		String tableId = extractTableId(qrToken);
+//		System.out.println("Editing item from table: " + tableId);
+		return ResponseEntity.ok(menuService.updateMenuItem(name, menuItem));
+	}
 
-    // ✅ Delete a Menu Item by Name
-    @DeleteMapping("/delete")
-    public ResponseEntity<String> deleteItem(@RequestParam("name") String name) {
-        menuService.deleteMenuItem(name);
-        return ResponseEntity.ok("Menu item deleted successfully");
-    }
-    
- // ✅ Fetch Price of an Item by Name
-    @GetMapping("/price")
-    public ResponseEntity<Double> getPrice(@RequestParam("name") String name) {
-        MenuItem item = menuService.getMenuItemByName(name);
-        if (item != null && item.getPrice() != null) {
-            return ResponseEntity.ok(item.getPrice());
-        }
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
-    }
+	/** ✅ FILTER MENU ITEMS (BY CATEGORY, PREFERENCE, OR BOTH) */
+	@GetMapping
+	public ResponseEntity<List<MenuItem>> getFilteredMenu(
+			@RequestParam(value = "qrToken", required = true) String qrToken,
+			@RequestParam(value = "category", required = false) String category,
+			@RequestParam(value = "preference", required = false) String preference) {
+
+		String tableId = extractTableId(qrToken);
+		System.out.println("Filtered menu accessed from table: " + tableId);
+
+		if (category != null && preference != null) {
+			return ResponseEntity.ok(menuService.getItemsByCategoryAndPreference(
+					Category.valueOf(category.toUpperCase()), Preference.valueOf(preference.toUpperCase())));
+		}
+		if (category != null) {
+			return ResponseEntity.ok(menuService.getItemsByCategory(Category.valueOf(category.toUpperCase())));
+		}
+		if (preference != null) {
+			return ResponseEntity.ok(menuService.getItemsByPreference(Preference.valueOf(preference.toUpperCase())));
+		}
+		return ResponseEntity.ok(menuService.getAllMenuItems(tableId));
+	}
+
+//    ** ✅ GET PRICE OF A MENU ITEM */
+	@GetMapping("/price")
+	public ResponseEntity<Double> getMenuItemPrice(
+			@RequestParam(value = "qrToken", required = true) String qrToken,
+			@RequestParam("name") String name) {
+
+		String tableId = extractTableId(qrToken);
+		System.out.println(
+				"Fetching price for item: " + name + " from table: " + (tableId != null ? tableId : "No table"));
+
+		// ✅ Fetch menu item by name
+		MenuItem menuItem = menuService.getMenuItemByName(name);
+		if (menuItem == null) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+		}
+		return ResponseEntity.ok(menuItem.getPrice());
+	}
+
 }

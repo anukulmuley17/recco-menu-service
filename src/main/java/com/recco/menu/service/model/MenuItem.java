@@ -32,6 +32,8 @@ public class MenuItem {
 
     @Column(nullable = false)
     private Double price;
+    
+    private String imagePath; // ✅ Stores image file path
 
 	public Long getId() {
 		return id;
@@ -80,6 +82,13 @@ public class MenuItem {
 	public void setPrice(Double price) {
 		this.price = price;
 	}
-    
+
+	public String getImagePath() {
+		return imagePath;
+	}
+
+	public void setImagePath(String imagePath) {
+		this.imagePath = imagePath;
+	}
     
 }

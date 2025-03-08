@@ -1,6 +1,7 @@
 package com.recco.menu.service.repository;
 
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -11,35 +12,32 @@ import com.recco.menu.service.model.MenuItem;
 import com.recco.menu.service.model.Preference;
 import com.recco.menu.service.services.MenuService;
 
-import java.util.List;
-import java.util.Optional;
-
 @Service
-@RequiredArgsConstructor
 public class MenuServiceImpl implements MenuService {
 
     private final MenuRepository menuRepository;
     
     @Autowired
-    public MenuServiceImpl(MenuRepository menuRepository) { // Explicit Constructor Injection
+    public MenuServiceImpl(MenuRepository menuRepository) {
         this.menuRepository = menuRepository;
     }
 
     @Override
-    public List<MenuItem> getAllMenuItems() {
+    public List<MenuItem> getAllMenuItems(String tableId) {
+       
         return menuRepository.findAll();
     }
 
-    @Override
-    public MenuItem getMenuItemByName(String name) {
-        return menuRepository.findByName(name)
-                .orElseThrow(() -> new MenuItemNotFoundException("Menu item not found: " + name));
-    }
+//    @Override
+//    public MenuItem getMenuItemByName(String name) {
+//        return menuRepository.findByName(name)
+//                .orElseThrow(() -> new MenuItemNotFoundException("Menu item not found: " + name));
+//    }
 
     @Override
     public List<MenuItem> getItemsByPreference(Preference preference) {
         try {
-        	return menuRepository.findByPreference(preference);  // ✅ Works with Enum
+            return menuRepository.findByPreference(preference);
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Invalid preference type: " + preference);
         }
@@ -48,7 +46,7 @@ public class MenuServiceImpl implements MenuService {
     @Override
     public List<MenuItem> getItemsByCategory(Category category) {
         try {
-        	 return menuRepository.findByCategory(category); 
+            return menuRepository.findByCategory(category);
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Invalid category type: " + category);
         }
@@ -59,14 +57,35 @@ public class MenuServiceImpl implements MenuService {
         return menuRepository.findByCategoryAndPreference(category, preference);
     }
     
+//    @Override
+//    public MenuItem addMenuItem(MenuItem menuItem) {
+//        Optional<MenuItem> existingItem = menuRepository.findByName(menuItem.getName());
+//        if (existingItem.isPresent()) {
+//            throw new IllegalArgumentException("Menu item already exists with name: " + menuItem.getName());
+//        }
+//        return menuRepository.save(menuItem);
+//    }
+    
     @Override
     public MenuItem addMenuItem(MenuItem menuItem) {
         Optional<MenuItem> existingItem = menuRepository.findByName(menuItem.getName());
         if (existingItem.isPresent()) {
-            throw new IllegalArgumentException("Menu item already exists with name: " + menuItem.getName());
+            throw new IllegalArgumentException("Menu item already exists: " + menuItem.getName());
         }
         return menuRepository.save(menuItem);
     }
+
+    @Override
+    public MenuItem getMenuItemByName(String name) {
+        MenuItem item = menuRepository.findByName(name)
+                .orElseThrow(() -> new MenuItemNotFoundException("Menu item not found: " + name));
+
+        // ✅ Append image URL
+        String imageUrl = "http://localhost:8082/api/menu/image/" + item.getImagePath();
+        item.setImagePath(imageUrl);
+        return item;
+    }
+
 
     @Override
     public MenuItem updateMenuItem(String name, MenuItem menuItem) {
@@ -79,7 +98,7 @@ public class MenuServiceImpl implements MenuService {
     }
 
     @Override
-    public void deleteMenuItem(String name) {
+    public void deleteMenuItemByName(String name) {
         MenuItem menuItem = getMenuItemByName(name);
         menuRepository.delete(menuItem);
     }
