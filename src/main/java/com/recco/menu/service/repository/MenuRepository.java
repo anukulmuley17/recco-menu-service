@@ -16,6 +16,8 @@ public interface MenuRepository extends JpaRepository<MenuItem, Long> {
     List<MenuItem> findByCategoryAndPreference(Category category, Preference preference);
     Optional<MenuItem> findByName(String name); // Find item by name
     void deleteByName(String name); // Delete item by name
+    List<MenuItem> findByNameContainingIgnoreCase(String name);
+
 	
 }
 

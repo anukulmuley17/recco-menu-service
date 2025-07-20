@@ -15,6 +15,7 @@ public interface MenuService {
     MenuItem addMenuItem(MenuItem menuItem);
     MenuItem updateMenuItem(String name, MenuItem menuItem);
     void deleteMenuItemByName(String name);
-	List<MenuItem> getAllMenuItems(String tableId);
+//	List<MenuItem> getAllMenuItems(String tableId);
+    List<MenuItem> getAllMenuItems();
 }
 

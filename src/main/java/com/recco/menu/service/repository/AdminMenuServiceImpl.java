@@ -10,15 +10,15 @@ import com.recco.menu.service.exception.MenuItemNotFoundException;
 import com.recco.menu.service.model.Category;
 import com.recco.menu.service.model.MenuItem;
 import com.recco.menu.service.model.Preference;
-import com.recco.menu.service.services.MenuService;
+import com.recco.menu.service.services.AdminMenuService;
 
 @Service
-public class MenuServiceImpl implements MenuService {
+public class AdminMenuServiceImpl implements AdminMenuService {
 
     private final MenuRepository menuRepository;
     
     @Autowired
-    public MenuServiceImpl(MenuRepository menuRepository) {
+    public AdminMenuServiceImpl(MenuRepository menuRepository) {
         this.menuRepository = menuRepository;
     }
 
@@ -28,11 +28,11 @@ public class MenuServiceImpl implements MenuService {
         return menuRepository.findAll();
     }
 
-//    @Override
-//    public MenuItem getMenuItemByName(String name) {
-//        return menuRepository.findByName(name)
-//                .orElseThrow(() -> new MenuItemNotFoundException("Menu item not found: " + name));
-//    }
+    @Override
+    public MenuItem getMenuItemByName(String name) {
+        return menuRepository.findByName(name)
+                .orElseThrow(() -> new MenuItemNotFoundException("Menu item not found: " + name));
+    }
 
     @Override
     public List<MenuItem> getItemsByPreference(Preference preference) {
@@ -75,16 +75,16 @@ public class MenuServiceImpl implements MenuService {
         return menuRepository.save(menuItem);
     }
 
-    @Override
-    public MenuItem getMenuItemByName(String name) {
-        MenuItem item = menuRepository.findByName(name)
-                .orElseThrow(() -> new MenuItemNotFoundException("Menu item not found: " + name));
-
-        // ✅ Append image URL
-        String imageUrl = "http://localhost:8082/api/menu/image/" + item.getImagePath();
-        item.setImagePath(imageUrl);
-        return item;
-    }
+//    @Override
+//    public MenuItem getMenuItemByName(String name) {
+//        MenuItem item = menuRepository.findByName(name)
+//                .orElseThrow(() -> new MenuItemNotFoundException("Menu item not found: " + name));
+//
+//        // ✅ Append image URL
+//        String imageUrl = "http://localhost:8082/api/menu/image/" + item.getImagePath();
+//        item.setImagePath(imageUrl);
+//        return item;
+//    }
 
 
     @Override
@@ -102,4 +102,22 @@ public class MenuServiceImpl implements MenuService {
         MenuItem menuItem = getMenuItemByName(name);
         menuRepository.delete(menuItem);
     }
+
+    @Override
+    public List<MenuItem> searchMenuItemsByName(String name) {
+        List<MenuItem> items = menuRepository.findByNameContainingIgnoreCase(name);
+
+        if (items.isEmpty()) {
+            throw new MenuItemNotFoundException("No menu items found for search: " + name);
+        }
+
+        // Update image URL for each item
+        for (MenuItem item : items) {
+            String imageUrl = "http://localhost:8082/api/menu/image/" + item.getImagePath();
+            item.setImagePath(imageUrl);
+        }
+
+        return items;
+    }
+
 }
